@@ -7,6 +7,11 @@ controller:
 
   numExecutors: 2
 
+  installPlugins:
+    - workflow-aggregator
+    - git
+    - configuration-as-code
+
   additionalPlugins:
     - ssh-agent
     - workflow-cps-global-lib
