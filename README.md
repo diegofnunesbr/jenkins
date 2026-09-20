@@ -12,11 +12,23 @@ reaproveitável em outros Jenkinsfiles do ambiente.
 
 ## Estrutura do repositório
 
+Segue a convenção oficial de Shared Library do Jenkins
+(https://www.jenkins.io/doc/book/pipeline/shared-libraries/):
+
 ```text
 jenkins/
 ├── Jenkinsfile                    # pipeline declarativo principal
-└── vars/
-    └── deployHomelab.groovy       # função reaproveitável (Shared Library)
+├── vars/
+│   └── deployHomelab.groovy       # função global chamável em qualquer Jenkinsfile
+├── src/
+│   └── homelab/
+│       └── GitHelper.groovy       # classes Groovy comuns (package homelab)
+├── resources/
+│   └── homelab/
+│       └── notify-template.txt    # arquivos estáticos, via libraryResource()
+└── docs/
+    └── adr/                        # decisões de arquitetura registradas
+        └── 0001-shared-library.md
 ```
 
 ## Configurar como Shared Library
