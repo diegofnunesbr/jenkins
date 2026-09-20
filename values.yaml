@@ -1,0 +1,26 @@
+controller:
+  serviceType: NodePort
+  nodePort: 30880
+
+  admin:
+    existingSecret: jenkins-admin-secret
+
+  numExecutors: 2
+
+  additionalPlugins:
+    - ssh-agent
+    - workflow-cps-global-lib
+
+  JCasC:
+    configScripts:
+      global-pipeline-libraries: |
+        unclassified:
+          globalLibraries:
+            libraries:
+              - name: "shared-libraries"
+                defaultVersion: "main"
+                retriever:
+                  modernSCM:
+                    scm:
+                      git:
+                        remote: "https://github.com/diegofnunesbr/shared-libraries.git"
