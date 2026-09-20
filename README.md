@@ -1,55 +1,24 @@
 # jenkins
 
-Pipeline como código: o `Jenkinsfile` orquestra `terraform` + `ansible` pra
-provisionar e configurar VMs do homelab. `vars/` é uma Shared Library,
-reaproveitável em outros Jenkinsfiles do ambiente.
+Pipeline de exemplo do homelab, usando a Shared Library do repositório
+`shared-libraries` pra provisionar (Terraform) e configurar (Ansible) VMs.
 
 ## Pré-requisitos
 
 - Jenkins com os plugins Pipeline, Git e SSH Agent
+- Repositório `shared-libraries` configurado como Global Pipeline Library
+  (chamada `shared-libraries`) - ver README daquele repositório
 - Credenciais SSH e do Proxmox cadastradas no Jenkins (Credentials)
 - Terraform e Ansible instalados no agente que vai rodar o pipeline
 
 ## Estrutura do repositório
 
-Segue a convenção oficial de Shared Library do Jenkins
-(https://www.jenkins.io/doc/book/pipeline/shared-libraries/):
-
 ```text
 jenkins/
-├── Jenkinsfile                    # pipeline declarativo principal
-├── vars/
-│   └── deployHomelab.groovy       # função global chamável em qualquer Jenkinsfile
-├── src/
-│   └── homelab/
-│       └── GitHelper.groovy       # classes Groovy comuns (package homelab)
-├── resources/
-│   └── homelab/
-│       └── notify-template.txt    # arquivos estáticos, via libraryResource()
-└── docs/
-    └── adr/                        # decisões de arquitetura registradas
-        └── 0001-shared-library.md
+└── Jenkinsfile                    # pipeline declarativo, chama a shared-libraries
 ```
 
-## Configurar como Shared Library
-
-Manage Jenkins → System → Global Pipeline Libraries:
-
-| Campo | Valor |
-|---|---|
-| Name | `homelab` |
-| Default version | `main` |
-| Retrieval method | Modern SCM → Git |
-| Repository URL | `https://github.com/diegofnunesbr/jenkins.git` |
-
-Uso em outro Jenkinsfile:
-
-```groovy
-@Library('homelab') _
-deployHomelab('vm-test')
-```
-
-## Configurar o pipeline principal
+## Configurar o pipeline
 
 Criar um job "Pipeline" (ou "Multibranch Pipeline") apontando pro
 `Jenkinsfile` deste repositório, com acesso de checkout aos repositórios

@@ -1,3 +1,5 @@
+@Library('shared-libraries') _
+
 pipeline {
   agent any
 
@@ -6,28 +8,9 @@ pipeline {
   }
 
   stages {
-    stage('Terraform Plan') {
+    stage('Deploy') {
       steps {
-        dir('terraform/environments/homelab') {
-          sh 'terraform init -input=false'
-          sh 'terraform plan -out=tfplan'
-        }
-      }
-    }
-
-    stage('Terraform Apply') {
-      steps {
-        dir('terraform/environments/homelab') {
-          sh 'terraform apply -input=false tfplan'
-        }
-      }
-    }
-
-    stage('Ansible') {
-      steps {
-        dir('ansible') {
-          sh "ansible-playbook playbooks/site.yml --limit ${params.TARGET}"
-        }
+        deployHomelab(params.TARGET)
       }
     }
   }

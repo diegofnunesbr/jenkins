@@ -1,1 +1,0 @@
-Build ${BUILD_NUMBER} do job ${JOB_NAME} finalizado com status: ${BUILD_STATUS}
