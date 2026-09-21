@@ -1,4 +1,10 @@
 controller:
+  image:
+    registry: docker.io
+    repository: jenkins-homelab
+    tag: local
+    pullPolicy: IfNotPresent
+
   serviceType: NodePort
   nodePort: 30880
 
