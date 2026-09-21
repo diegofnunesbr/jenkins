@@ -1,3 +1,6 @@
+agent:
+  enabled: false
+
 controller:
   serviceType: NodePort
   nodePort: 30880
