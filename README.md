@@ -26,9 +26,45 @@ jenkins/
 └── README.md
 ```
 
-## Gerar o SealedSecret jenkins-admin-secret
+## 1. Clonar e buildar a imagem custom (Terraform/Terragrunt/Ansible/git/ssh)
+
+O chart oficial não inclui essas ferramentas - `values.yaml` já aponta
+`controller.image` pra uma imagem local (`docker.io/library/jenkins-homelab:local`,
+`pullPolicy: IfNotPresent`), que precisa existir no cluster **antes** de
+aplicar a Application (senão o pod fica em `ImagePullBackOff`):
 
 ```bash
+git clone https://github.com/diegofnunesbr/jenkins.git
+cd jenkins
+./build.sh
+```
+
+Isso roda `docker build` a partir do `Dockerfile` (base `jenkins/jenkins`
++ Terraform `1.16.3` + Terragrunt `1.1.5` + Ansible `14.4.0` + `git` +
+`openssh-client`) e importa a imagem pro containerd do k0s via
+`k0s ctr images import` - mesmo mecanismo do `deploy.sh` do repositório
+`rundeck`, sem precisar de um registry.
+
+**`docker build -t jenkins-homelab:local` não gera a tag `jenkins-homelab:local`
+sozinha** - o Docker insere `library/` automaticamente em nomes de imagem
+de um segmento só quando referenciados com registry completo
+(`docker.io/jenkins-homelab:local` vira `docker.io/library/jenkins-homelab:local`).
+Se mudar o nome da imagem no `build.sh`, ajuste `controller.image.repository`
+em `values.yaml` pra bater exatamente (confira com
+`sudo k0s ctr images ls | grep jenkins-homelab` se ficar em dúvida).
+
+Rode `./build.sh` de novo sempre que o `Dockerfile` mudar (nova versão do
+Terraform/Ansible, etc.) e reinicie o pod (`kubectl delete pod jenkins-0 -n jenkins`)
+pra ele pegar a imagem nova.
+
+## 2. Criar o namespace e o SealedSecret jenkins-admin-secret
+
+O namespace precisa existir **antes** de criar o secret (a Application
+também cria ele via `CreateNamespace=true`, mas só na hora do sync, que
+ainda não rolou nesse ponto):
+
+```bash
+kubectl create namespace jenkins
 printf '%s' 'admin' > /tmp/admin-user
 printf '%s' 'SUA_SENHA_AQUI' > /tmp/admin-password
 kubectl create secret generic jenkins-admin-secret -n jenkins \
@@ -38,19 +74,19 @@ kubectl create secret generic jenkins-admin-secret -n jenkins \
 kubeseal --scope cluster-wide --format yaml < unsealed.secret.yaml > sealed.secret.yaml
 rm -f /tmp/admin-user /tmp/admin-password unsealed.secret.yaml
 kubectl apply -f sealed.secret.yaml
+rm -f sealed.secret.yaml
 ```
 
-O namespace `jenkins` já deve existir no cluster antes desse passo (ou
-crie manualmente - a Application também tem `CreateNamespace=true`, mas
-o `kubectl create secret` acima roda antes dela).
-
-## Instalar o Jenkins
+## 3. Instalar o Jenkins
 
 ```bash
-git clone https://github.com/diegofnunesbr/jenkins.git
-cd jenkins
 kubectl apply -f applications/argocd.jenkins.yaml
 ```
+
+**Lembrete:** a Application aponta pro GitHub (`repoURL`), não pro seu
+clone local - qualquer mudança em `values.yaml`/`Dockerfile` só tem
+efeito depois de `git push` (e um sync, automático ou forçado via
+`kubectl -n argocd patch application jenkins --type merge -p '{"operation":{"sync":{}}}'`).
 
 `values.yaml` já configura:
 - `NodePort` fixo na porta `30880`
@@ -80,37 +116,7 @@ Por isso `initContainerEnv` já seta `JAVA_TOOL_OPTIONS` com
 o init container indefinidamente em vez de cair no retry (`attempt N de
 3`) que a própria ferramenta já tenta fazer.
 
-## Buildar a imagem custom (Terraform/Terragrunt/Ansible/git/ssh)
-
-O chart oficial não inclui essas ferramentas - `values.yaml` já aponta
-`controller.image` pra uma imagem local (`docker.io/library/jenkins-homelab:local`,
-`pullPolicy: IfNotPresent`), que precisa existir no cluster **antes** de
-aplicar a Application (ou o pod fica em `ImagePullBackOff`):
-
-```bash
-cd jenkins
-./build.sh
-```
-
-Isso roda `docker build` a partir do `Dockerfile` (base `jenkins/jenkins`
-+ Terraform `1.16.3` + Terragrunt `1.1.5` + Ansible `14.4.0` + `git` +
-`openssh-client`) e importa a imagem pro containerd do k0s via
-`k0s ctr images import` - mesmo mecanismo do `deploy.sh` do repositório
-`rundeck`, sem precisar de um registry.
-
-**`docker build -t jenkins-homelab:local` não gera a tag `jenkins-homelab:local`
-sozinha** - o Docker insere `library/` automaticamente em nomes de imagem
-de um segmento só quando referenciados com registry completo
-(`docker.io/jenkins-homelab:local` vira `docker.io/library/jenkins-homelab:local`).
-Se mudar o nome da imagem no `build.sh`, ajuste `controller.image.repository`
-em `values.yaml` pra bater exatamente (confira com
-`sudo k0s ctr images ls | grep jenkins-homelab` se ficar em dúvida).
-
-Rode `./build.sh` de novo sempre que o `Dockerfile` mudar (nova versão do
-Terraform/Ansible, etc.) e reinicie o pod (`kubectl delete pod jenkins-0 -n jenkins`)
-pra ele pegar a imagem nova.
-
-## Cadastrar as credenciais (SSH e Proxmox)
+## 4. Cadastrar as credenciais (SSH e Proxmox)
 
 Isso não é automatizável com segurança por aqui, porque envolve segredo
 real (chave privada, API token) - cadastre direto na UI:
