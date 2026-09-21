@@ -52,18 +52,37 @@ kubectl apply -f applications/argocd.jenkins.yaml
 
 `values.yaml` já configura:
 - `NodePort` fixo na porta `30880`
-- plugins Git e Pipeline (`workflow-aggregator`, padrão do chart) + SSH Agent
-  (`ssh-agent`) e Pipeline Groovy Libraries (`workflow-cps-global-lib`)
+- plugins padrão do chart (`kubernetes`, `workflow-aggregator`/Pipeline, `git`,
+  `configuration-as-code`) + SSH Agent (`ssh-agent`) e Pipeline Groovy
+  Libraries (`workflow-cps-global-lib`) via `additionalPlugins`
 - a Global Pipeline Library `shared-libraries` já pré-configurada via
   JCasC (`Manage Jenkins → System → Global Pipeline Libraries` já vem
   preenchido, sem passo manual)
+- `numExecutors: 2` no controller - o pipeline de exemplo roda direto nele,
+  sem agente dinâmico (mesmo com o plugin `kubernetes` instalado)
 
-**Faltando ainda:** o pipeline (`Jenkinsfile`) roda no próprio controller
-(`numExecutors: 2`, sem agentes Kubernetes dinâmicos) e o chart oficial
-não inclui Terraform/Ansible na imagem - pra `deployHomelab()` funcionar
-de verdade, ainda é preciso instalar esses binários no pod do controller
-(via `initContainers`/imagem customizada) e cadastrar as credenciais SSH
-e do Proxmox em `Manage Jenkins → Credentials`.
+**Não mexa no plugin `kubernetes`:** ele parece dispensável (não usamos
+agentes dinâmicos aqui), mas o `defaultConfig: true` do chart sempre gera
+um bloco `clouds: [kubernetes]` no JCasC, e removê-lo sem também desligar
+`controller.JCasC.defaultConfig` derruba o Jenkins no boot com
+`UnknownAttributesException: cloud: No hudson.slaves.Cloud implementation
+found for kubernetes`. `agent.enabled: false` **não** resolve isso (só
+afeta o pod template padrão, não a config da cloud em si).
+
+**Instalação inicial pode demorar:** o `kubernetes` plugin puxa uma
+árvore grande de dependências, e os mirrors do Jenkins
+(`ftp-nyc.osuosl.org` e outros) ocasionalmente ficam lentos/instáveis,
+travando o download sem timeout algum (Java não define um por padrão).
+Por isso `initContainerEnv` já seta `JAVA_TOOL_OPTIONS` com
+`connectTimeout`/`readTimeout` - sem isso, um mirror travado pode prender
+o init container indefinidamente em vez de cair no retry (`attempt N de
+3`) que a própria ferramenta já tenta fazer.
+
+**Faltando ainda:** o chart oficial não inclui Terraform/Ansible na
+imagem - pra `deployHomelab()` funcionar de verdade, ainda é preciso
+instalar esses binários no pod do controller (via `initContainers`/imagem
+customizada) e cadastrar as credenciais SSH e do Proxmox em
+`Manage Jenkins → Credentials`.
 
 ## Acessar
 
