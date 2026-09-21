@@ -7,6 +7,10 @@ controller:
 
   numExecutors: 2
 
+  initContainerEnv:
+    - name: JAVA_TOOL_OPTIONS
+      value: "-Dsun.net.client.defaultConnectTimeout=15000 -Dsun.net.client.defaultReadTimeout=30000"
+
   installPlugins:
     - workflow-aggregator
     - git
