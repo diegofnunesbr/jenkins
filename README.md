@@ -20,6 +20,8 @@ jenkins/
 ├── applications/
 │   └── argocd.jenkins.yaml     # Application multi-source do Argo CD
 ├── values.yaml                 # values do chart oficial jenkins/jenkins
+├── Dockerfile                  # imagem custom: chart + Terraform/Terragrunt/Ansible/git/ssh
+├── build.sh                    # builda a imagem e importa pro containerd do k0s
 ├── Jenkinsfile                 # pipeline declarativo, chama a shared-libraries
 └── README.md
 ```
@@ -78,11 +80,50 @@ Por isso `initContainerEnv` já seta `JAVA_TOOL_OPTIONS` com
 o init container indefinidamente em vez de cair no retry (`attempt N de
 3`) que a própria ferramenta já tenta fazer.
 
-**Faltando ainda:** o chart oficial não inclui Terraform/Ansible na
-imagem - pra `deployHomelab()` funcionar de verdade, ainda é preciso
-instalar esses binários no pod do controller (via `initContainers`/imagem
-customizada) e cadastrar as credenciais SSH e do Proxmox em
-`Manage Jenkins → Credentials`.
+## Buildar a imagem custom (Terraform/Terragrunt/Ansible/git/ssh)
+
+O chart oficial não inclui essas ferramentas - `values.yaml` já aponta
+`controller.image` pra uma imagem local (`docker.io/library/jenkins-homelab:local`,
+`pullPolicy: IfNotPresent`), que precisa existir no cluster **antes** de
+aplicar a Application (ou o pod fica em `ImagePullBackOff`):
+
+```bash
+cd jenkins
+./build.sh
+```
+
+Isso roda `docker build` a partir do `Dockerfile` (base `jenkins/jenkins`
++ Terraform `1.16.3` + Terragrunt `1.1.5` + Ansible `14.4.0` + `git` +
+`openssh-client`) e importa a imagem pro containerd do k0s via
+`k0s ctr images import` - mesmo mecanismo do `deploy.sh` do repositório
+`rundeck`, sem precisar de um registry.
+
+**`docker build -t jenkins-homelab:local` não gera a tag `jenkins-homelab:local`
+sozinha** - o Docker insere `library/` automaticamente em nomes de imagem
+de um segmento só quando referenciados com registry completo
+(`docker.io/jenkins-homelab:local` vira `docker.io/library/jenkins-homelab:local`).
+Se mudar o nome da imagem no `build.sh`, ajuste `controller.image.repository`
+em `values.yaml` pra bater exatamente (confira com
+`sudo k0s ctr images ls | grep jenkins-homelab` se ficar em dúvida).
+
+Rode `./build.sh` de novo sempre que o `Dockerfile` mudar (nova versão do
+Terraform/Ansible, etc.) e reinicie o pod (`kubectl delete pod jenkins-0 -n jenkins`)
+pra ele pegar a imagem nova.
+
+## Cadastrar as credenciais (SSH e Proxmox)
+
+Isso não é automatizável com segurança por aqui, porque envolve segredo
+real (chave privada, API token) - cadastre direto na UI:
+
+`Manage Jenkins → Credentials → System → Global credentials → Add Credentials`
+
+| Tipo | ID sugerido | Conteúdo |
+|---|---|---|
+| SSH Username with private key | `proxmox-ssh-key` | usuário `diegofnunesbr`, a mesma chave privada usada pelo Terraform pra acessar o Proxmox via SSH (upload do cloud-init) |
+| Secret text | `proxmox-api-token` | o token gerado em `pveum user token add terraform@pve terraform` (repositório `terraform`) |
+
+O `Jenkinsfile`/`shared-libraries` referencia essas credenciais pelo ID -
+ajuste os nomes lá se cadastrar com IDs diferentes.
 
 ## Acessar
 
