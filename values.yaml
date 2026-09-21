@@ -1,7 +1,7 @@
 controller:
   image:
     registry: docker.io
-    repository: jenkins-homelab
+    repository: library/jenkins-homelab
     tag: local
     pullPolicy: IfNotPresent
 
