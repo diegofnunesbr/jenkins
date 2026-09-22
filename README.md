@@ -11,7 +11,10 @@ configurar (Ansible) VMs.
 - `Kubernetes` instalado
 - `kubectl` e `kubeseal` instalados
 - ArgoCD instalado (ver repositório `argocd`)
-- `Sealed Secrets` instalado
+- `Sealed Secrets` e `cert-manager` instalados (via `core-config` do
+  repositório `argocd` e repositório `cert-manager`)
+- `ingress-nginx` instalado (via `core-config` do repositório `argocd`)
+- DNS `jenkins.diegofnunesbr.com` apontando pro node (ver repositório `dns`)
 
 ## Estrutura do repositório
 
@@ -89,7 +92,7 @@ efeito depois de `git push` (e um sync, automático ou forçado via
 `kubectl -n argocd patch application jenkins --type merge -p '{"operation":{"sync":{}}}'`).
 
 `values.yaml` já configura:
-- `NodePort` fixo na porta `30880`
+- `Ingress` com TLS automático via cert-manager (`jenkins.diegofnunesbr.com`)
 - plugins padrão do chart (`kubernetes`, `workflow-aggregator`/Pipeline, `git`,
   `configuration-as-code`) + SSH Agent (`ssh-agent`) e Pipeline Groovy
   Libraries (`workflow-cps-global-lib`) via `additionalPlugins`
@@ -163,10 +166,12 @@ ajuste os nomes lá se cadastrar com IDs diferentes.
 ## Acessar
 
 ```text
-http://<ip-do-node-k0s>:30880
+https://jenkins.diegofnunesbr.com
 ```
 
-Login `admin` + senha do SealedSecret gerado acima.
+Login `admin` + senha do SealedSecret gerado acima. Certificado real
+(Let's Encrypt, renovado automaticamente pelo cert-manager) - sem porta
+na URL, o `ingress-nginx` escuta direto em `80`/`443` via `hostNetwork`.
 
 ## Configurar o pipeline
 
