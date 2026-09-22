@@ -116,6 +116,35 @@ Por isso `initContainerEnv` já seta `JAVA_TOOL_OPTIONS` com
 o init container indefinidamente em vez de cair no retry (`attempt N de
 3`) que a própria ferramenta já tenta fazer.
 
+**`initializeOnce: true` é obrigatório, não é só otimização.** O script
+`apply_config.sh` do chart oficial (gerado a partir de
+`templates/config.yaml`) tem uma linha `yes n | cp -i .../plugins/*
+/var/jenkins_plugins/` que **trava de verdade** (confirmado com teste
+isolado, `timeout 5` matou o processo, não terminou sozinho) sempre que
+o destino já tem arquivos - o que acontece em qualquer restart do
+container (o volume `EmptyDir` sobrevive a reinícios de container
+dentro do mesmo pod, só se limpa quando o *pod* inteiro é recriado). Sem
+`initializeOnce`, um simples restart do container (ex.: reboot da
+máquina host) deixa o Jenkins preso em `CrashLoopBackOff` indefinidamente
+até alguém apagar o pod manualmente (`kubectl delete pod jenkins-0 -n
+jenkins`).
+
+Com `initializeOnce: true`, o script inteiro só roda na primeira
+inicialização - ele cria `$JENKINS_HOME/initialization-completed` (no
+PVC, persistente) e, a partir daí, qualquer restart sai logo na primeira
+linha (`controller was previously initialized, refusing to
+re-initialize`), nunca chegando perto do `cp` problemático.
+
+**Trade-off:** depois da primeira subida, mudanças em plugins/JCasC no
+`values.yaml` não são mais aplicadas automaticamente nos restarts
+seguintes. Pra forçar uma reinicialização completa (ex.: depois de
+adicionar um plugin novo), apague o marcador antes de reiniciar o pod:
+
+```bash
+kubectl -n jenkins exec jenkins-0 -c jenkins -- rm -f /var/jenkins_home/initialization-completed
+kubectl -n jenkins delete pod jenkins-0
+```
+
 ## 4. Cadastrar as credenciais (SSH e Proxmox)
 
 Isso não é automatizável com segurança por aqui, porque envolve segredo
