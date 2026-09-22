@@ -5,8 +5,18 @@ controller:
     tag: local
     pullPolicy: IfNotPresent
 
-  serviceType: NodePort
-  nodePort: 30880
+  serviceType: ClusterIP
+
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hostName: jenkins.diegofnunesbr.com
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-clusterissuer
+    tls:
+      - secretName: jenkins-tls
+        hosts:
+          - jenkins.diegofnunesbr.com
 
   admin:
     existingSecret: jenkins-admin-secret
