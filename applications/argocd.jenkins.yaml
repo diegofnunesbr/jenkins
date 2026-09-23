@@ -15,6 +15,9 @@ spec:
     - repoURL: https://github.com/diegofnunesbr/jenkins.git
       targetRevision: main
       ref: values
+    - repoURL: https://github.com/diegofnunesbr/jenkins.git
+      targetRevision: main
+      path: secrets
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins

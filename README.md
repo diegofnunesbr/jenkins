@@ -13,7 +13,9 @@ configurar (Ansible) VMs.
 - ArgoCD instalado (ver repositório `argocd`)
 - `Sealed Secrets` e `cert-manager` instalados (via `core-config` do
   repositório `argocd` e repositório `cert-manager`)
-- `ingress-nginx` instalado (via `core-config` do repositório `argocd`)
+- `ingress-nginx` instalado (repositório `ingress-nginx`)
+- Acesso `ssh` à `vm-ubuntu` (o `change-admin-password.sh` busca o
+  certificado público do Sealed Secrets e dispara o restart por lá)
 - DNS `jenkins.diegofnunesbr.com` apontando pro node (ver repositório `dns`)
 
 ## Estrutura do repositório
@@ -22,6 +24,9 @@ configurar (Ansible) VMs.
 jenkins/
 ├── applications/
 │   └── argocd.jenkins.yaml     # Application multi-source do Argo CD
+├── secrets/
+│   └── jenkins-admin-secret.sealed.yaml  # senha do admin (selada, aplicada pelo Argo CD)
+├── change-admin-password.sh    # troca a senha do admin
 ├── values.yaml                 # values do chart oficial jenkins/jenkins
 ├── Dockerfile                  # imagem custom: chart + Terraform/Terragrunt/Ansible/git/ssh
 ├── build.sh                    # builda a imagem e importa pro containerd do k0s
@@ -60,25 +65,21 @@ Rode `./build.sh` de novo sempre que o `Dockerfile` mudar (nova versão do
 Terraform/Ansible, etc.) e reinicie o pod (`kubectl delete pod jenkins-0 -n jenkins`)
 pra ele pegar a imagem nova.
 
-## 2. Criar o namespace e o SealedSecret jenkins-admin-secret
+## 2. Senha do admin
 
-O namespace precisa existir **antes** de criar o secret (a Application
-também cria ele via `CreateNamespace=true`, mas só na hora do sync, que
-ainda não rolou nesse ponto):
+A senha fica selada em `secrets/jenkins-admin-secret.sealed.yaml`, que a
+própria Application aplica (terceira source). Numa reinstalação do zero
+com o **mesmo** cluster (mesma chave do Sealed Secrets), não precisa fazer
+nada. Cluster novo (chave nova) ou pra trocar a senha, rode daqui do seu
+clone (pede a senha sem ecoar, sela, faz commit + push, espera o Argo CD
+sincronizar e reinicia o Jenkins pra ele carregar):
 
 ```bash
-kubectl create namespace jenkins
-printf '%s' 'admin' > /tmp/admin-user
-printf '%s' 'SUA_SENHA_AQUI' > /tmp/admin-password
-kubectl create secret generic jenkins-admin-secret -n jenkins \
-  --from-file=jenkins-admin-user=/tmp/admin-user \
-  --from-file=jenkins-admin-password=/tmp/admin-password \
-  --dry-run=client -o yaml > unsealed.secret.yaml
-kubeseal --scope cluster-wide --format yaml < unsealed.secret.yaml > sealed.secret.yaml
-rm -f /tmp/admin-user /tmp/admin-password unsealed.secret.yaml
-kubectl apply -f sealed.secret.yaml
-rm -f sealed.secret.yaml
+./change-admin-password.sh
 ```
+
+Numa instalação do zero, rode esse script depois do passo 3 (o pod fica
+esperando o secret até lá).
 
 ## 3. Instalar o Jenkins
 
@@ -169,7 +170,7 @@ ajuste os nomes lá se cadastrar com IDs diferentes.
 https://jenkins.diegofnunesbr.com
 ```
 
-Login `admin` + senha do SealedSecret gerado acima. Certificado real
+Login `admin` + senha definida no passo 2. Certificado real
 (Let's Encrypt, renovado automaticamente pelo cert-manager) - sem porta
 na URL, o `ingress-nginx` escuta direto em `80`/`443` via `hostNetwork`.
 
