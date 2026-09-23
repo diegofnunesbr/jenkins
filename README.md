@@ -14,8 +14,8 @@ configurar (Ansible) VMs.
 - `Sealed Secrets` e `cert-manager` instalados (via `core-config` do
   repositório `argocd` e repositório `cert-manager`)
 - `ingress-nginx` instalado (repositório `ingress-nginx`)
-- Acesso `ssh` à `vm-ubuntu` (o `change-admin-password.sh` busca o
-  certificado público do Sealed Secrets e dispara o restart por lá)
+- Contexto `k0s` no seu kubeconfig (ver README do repositório `argocd`,
+  seção "Acessar o cluster de fora da VM"), usado pelo `change-admin-password.sh`
 - DNS `jenkins.diegofnunesbr.com` apontando pro node (ver repositório `dns`)
 
 ## Estrutura do repositório
