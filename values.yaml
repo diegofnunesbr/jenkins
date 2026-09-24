@@ -51,6 +51,7 @@ controller:
               serverConfiguration:
                 wellKnown:
                   wellKnownOpenIDConfigurationUrl: "https://keycloak.diegofnunesbr.com/realms/home/.well-known/openid-configuration"
+                  scopesOverride: "openid email profile"
               clientId: "jenkins"
               clientSecret: "${JENKINS_OIDC_CLIENT_SECRET}"
               userNameField: "preferred_username"
