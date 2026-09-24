@@ -29,12 +29,46 @@ controller:
     - name: JAVA_TOOL_OPTIONS
       value: "-Dsun.net.client.defaultConnectTimeout=15000 -Dsun.net.client.defaultReadTimeout=30000"
 
+  containerEnv:
+    - name: JENKINS_OIDC_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: jenkins-oidc
+          key: clientSecret
+
   additionalPlugins:
     - ssh-agent
     - workflow-cps-global-lib
+    - oic-auth
+    - role-strategy
 
   JCasC:
     configScripts:
+      security: |
+        jenkins:
+          securityRealm:
+            oic:
+              serverConfiguration:
+                wellKnown:
+                  wellKnownOpenIDConfigurationUrl: "https://keycloak.diegofnunesbr.com/realms/home/.well-known/openid-configuration"
+              clientId: "jenkins"
+              clientSecret: "${JENKINS_OIDC_CLIENT_SECRET}"
+              userNameField: "preferred_username"
+              fullNameFieldName: "name"
+              emailFieldName: "email"
+              groupsFieldName: "groups"
+              logoutFromOpenidProvider: true
+              postLogoutRedirectUrl: "https://jenkins.diegofnunesbr.com"
+          authorizationStrategy:
+            roleBased:
+              roles:
+                global:
+                  - name: "admin"
+                    description: "Login pelo Keycloak, grupo jenkins-admins"
+                    permissions:
+                      - "Overall/Administer"
+                    entries:
+                      - group: "jenkins-admins"
       global-pipeline-libraries: |
         unclassified:
           globalLibraries:

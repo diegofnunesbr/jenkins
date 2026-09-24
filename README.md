@@ -25,7 +25,8 @@ jenkins/
 ├── applications/
 │   └── argocd.jenkins.yaml     # Application multi-source do Argo CD
 ├── secrets/
-│   └── jenkins-admin-secret.sealed.yaml  # senha do admin (selada, aplicada pelo Argo CD)
+│   ├── jenkins-admin-secret.sealed.yaml  # senha do admin local (fallback, ver "Login pelo Keycloak")
+│   └── jenkins-oidc.sealed.yaml          # client secret do Keycloak (selado, aplicado pelo Argo CD)
 ├── change-admin-password.sh    # troca a senha do admin
 ├── values.yaml                 # values do chart oficial jenkins/jenkins
 ├── Dockerfile                  # imagem custom: chart + Terraform/Terragrunt/Ansible/git/ssh
@@ -170,9 +171,34 @@ ajuste os nomes lá se cadastrar com IDs diferentes.
 https://jenkins.diegofnunesbr.com
 ```
 
-Login `admin` + senha definida no passo 2. Certificado real
-(Let's Encrypt, renovado automaticamente pelo cert-manager) - sem porta
-na URL, o `ingress-nginx` escuta direto em `80`/`443` via `hostNetwork`.
+Login pelo Keycloak (ver seção abaixo). Certificado real (Let's Encrypt,
+renovado automaticamente pelo cert-manager) - sem porta na URL, o
+`ingress-nginx` escuta direto em `80`/`443` via `hostNetwork`.
+
+## Login pelo Keycloak (SSO)
+
+`values.yaml` troca o `securityRealm` padrão do Jenkins pelo plugin
+`oic-auth`, apontando pro realm `home` do Keycloak (repositório
+`keycloak`, `https://keycloak.diegofnunesbr.com`). O `authorizationStrategy`
+vira `roleBased` (plugin `role-strategy`): quem estiver no grupo
+`jenkins-admins` do Keycloak vira admin do Jenkins; ninguém mais entra.
+
+O client secret do Keycloak fica selado em
+`secrets/jenkins-oidc.sealed.yaml` e chega no pod via variável de ambiente
+(`JENKINS_OIDC_CLIENT_SECRET`), que o JCasC referencia com `${...}` - nunca
+fica em texto puro no `values.yaml`.
+
+Pra dar acesso a alguém: no Keycloak, realm `home`, coloque o usuário no
+grupo `jenkins-admins`.
+
+**Trocar a senha do admin local deixa de fazer sentido** depois disso -
+ela só serve como plano B, se o Keycloak cair. Pra usar o plano B: edite
+`values.yaml` removendo o `securityRealm`/`authorizationStrategy` do bloco
+`security` do JCasC (ou comente o arquivo inteiro), `git push`, espere o
+sync, e siga o passo "Trade-off" abaixo (apagar o marcador +
+`kubectl delete pod jenkins-0`) pra forçar reaplicar. O Jenkins volta a
+pedir usuário/senha local (`admin` + a senha selada). Depois de resolver,
+desfaça a mudança e repita o mesmo processo pra voltar ao Keycloak.
 
 ## Configurar o pipeline
 
