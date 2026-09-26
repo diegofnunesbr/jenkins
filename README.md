@@ -178,7 +178,7 @@ renovado automaticamente pelo cert-manager) - sem porta na URL, o
 ## Login pelo Keycloak (SSO)
 
 `values.yaml` troca o `securityRealm` padrão do Jenkins pelo plugin
-`oic-auth`, apontando pro realm `home` do Keycloak (repositório
+`oic-auth`, apontando pro realm `homelab` do Keycloak (repositório
 `keycloak`, `https://keycloak.diegofnunesbr.com`). O `authorizationStrategy`
 vira `roleBased` (plugin `role-strategy`): quem estiver no grupo
 `jenkins-admins` do Keycloak vira admin do Jenkins; ninguém mais entra.
@@ -188,7 +188,7 @@ O client secret do Keycloak fica selado em
 (`JENKINS_OIDC_CLIENT_SECRET`), que o JCasC referencia com `${...}` - nunca
 fica em texto puro no `values.yaml`.
 
-Pra dar acesso a alguém: no Keycloak, realm `home`, coloque o usuário no
+Pra dar acesso a alguém: no Keycloak, realm `homelab`, coloque o usuário no
 grupo `jenkins-admins`.
 
 **Trocar a senha do admin local deixa de fazer sentido** depois disso -
